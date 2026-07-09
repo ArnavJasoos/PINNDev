@@ -23,7 +23,9 @@ def _forbidden_from_history(state: PINNState) -> list[str]:
 
     forbidden: list[str] = []
     for entry in state.get("history", []):
-        approach = entry.get("forbidden") or entry.get("architecture")
+        # Only approaches Feedback explicitly reverted are forbidden — not every prior
+        # architecture (a mid-refinement revise_code should not ban its architecture).
+        approach = entry.get("forbidden")
         if approach and approach not in forbidden:
             forbidden.append(approach)
     return forbidden
@@ -51,7 +53,7 @@ def research_node(state: PINNState, llm: SupportsStructured) -> dict:
     report: ResearchReport = invoke_structured(llm, ResearchReport, system, human)
 
     # Deterministic guarantees the LLM must not override:
-    if report.architecture in forbidden:
+    if report.architecture in forbidden and match["architecture"]:
         report.architecture = match["architecture"]
     if not report.arch_rationale:
         report.arch_rationale = match["rationale"]

@@ -10,17 +10,34 @@ score — so strict symbolic checks don't over-reject algebraically-equal forms.
 from __future__ import annotations
 
 import random
-from typing import Any
+from typing import Any, Optional
 
 import sympy as sp
+
+# sympify() calls eval(); an attacker-influenced string could reach arbitrary objects
+# via dunder attribute chains (e.g. ().__class__...). Legitimate PDE/ODE expressions
+# never contain these tokens, so we reject them before sympify as defense-in-depth.
+_FORBIDDEN_TOKENS = ("__", "import", "lambda", "exec", "eval", "os.", "sys.", "`")
+
+
+def _reject_unsafe(expr_src: str) -> Optional[str]:
+    lowered = expr_src.lower()
+    for token in _FORBIDDEN_TOKENS:
+        if token in lowered:
+            return f"rejected unsafe token {token!r} in expression"
+    return None
 
 
 def sympy_parse(expr_src: str) -> dict[str, Any]:
     """Parse a sympy expression string into a canonical form + metadata.
 
     Returns ``{ok, latex, symbols, canonical, error}``. Never raises — a parse
-    failure comes back as ``ok=False`` with the error text so an agent can react.
+    failure (or a rejected unsafe token) comes back as ``ok=False`` with the reason.
     """
+
+    unsafe = _reject_unsafe(expr_src)
+    if unsafe:
+        return {"ok": False, "latex": "", "symbols": [], "canonical": "", "error": unsafe}
 
     try:
         expr = sp.sympify(expr_src)
@@ -49,6 +66,10 @@ def symbolic_equivalence(
     agreement fraction over random sample points meets a high bar. ``score`` is that
     agreement fraction (1.0 when symbolically proven).
     """
+
+    unsafe = _reject_unsafe(lhs) or _reject_unsafe(rhs)
+    if unsafe:
+        return {"equivalent": False, "score": 0.0, "method": "rejected", "error": unsafe}
 
     try:
         a = sp.sympify(lhs)

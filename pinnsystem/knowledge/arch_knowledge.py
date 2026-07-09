@@ -60,8 +60,16 @@ def match_architecture(
         for arch, psi in ARCH_CAPABILITIES.items()
         if arch not in forbidden_set
     }
-    if not scores or all(v == 0.0 for v in scores.values()):
-        default = "MLP" if "MLP" not in forbidden_set else next(iter(scores), "MLP")
+    if not scores:
+        # Every architecture is forbidden — the failure-memory guarantee can't hold, so
+        # surface that rather than silently returning a forbidden default.
+        return {
+            "architecture": None,
+            "rationale": "All architectures are in the failure memory; none available.",
+            "scores": {},
+        }
+    if all(v == 0.0 for v in scores.values()):
+        default = "MLP" if "MLP" not in forbidden_set else next(iter(scores))
         return {
             "architecture": default,
             "rationale": "No discriminating PDE features; defaulting to a plain MLP backbone.",

@@ -7,6 +7,7 @@ import numpy as np
 from pinnsystem.tools import (
     build_dataset,
     evaluate_run,
+    fetch_url,
     plot_results,
     symbolic_equivalence,
     sympy_parse,
@@ -40,6 +41,24 @@ def test_web_search_is_offline_safe():
     out = web_search("physics informed neural network", backend="none")
     assert out["results"] == []
     assert "disabled" in out["note"]
+
+
+def test_fetch_url_rejects_non_web_schemes(tmp_path):
+    secret = tmp_path / "secret.txt"
+    secret.write_text("TOP SECRET", encoding="utf-8")
+    out = fetch_url(secret.as_uri())  # file:// URL
+    assert not out["ok"]
+    assert "TOP SECRET" not in out["text"]
+
+
+def test_symbolic_rejects_unsafe_tokens():
+    bad = sympy_parse("().__class__.__base__.__subclasses__()")
+    assert not bad["ok"]
+    assert "unsafe" in bad["error"]
+
+    eq = symbolic_equivalence("__import__('os')", "x")
+    assert not eq["equivalent"]
+    assert eq["method"] == "rejected"
 
 
 def test_build_train_evaluate_plot_roundtrip(tmp_path):

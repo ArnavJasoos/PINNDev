@@ -122,6 +122,10 @@ class VenvRunner:
                 stderr=exc.stderr or "" if isinstance(exc.stderr, str) else "",
                 timed_out=True,
             )
+        except OSError as exc:
+            # Misconfigured interpreter / missing cwd: fail into the RunOutcome path
+            # rather than crashing the calling agent node.
+            return RunOutcome(returncode=-1, stdout="", stderr=str(exc), timed_out=False)
         return RunOutcome(
             returncode=proc.returncode,
             stdout=proc.stdout,

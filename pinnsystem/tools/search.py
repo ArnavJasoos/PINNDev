@@ -20,9 +20,13 @@ _TIMEOUT = 10.0
 
 
 def _http_get(url: str, *, timeout: float = _TIMEOUT) -> Optional[bytes]:
+    # Reject non-web schemes (file://, ftp://, data://, ...) so a caller-supplied URL
+    # can't read local files or reach non-HTTP internal services via urllib handlers.
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):
+        return None
     req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - fixed schemes
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - scheme checked
             return resp.read()
     except (urllib.error.URLError, TimeoutError, OSError):
         return None

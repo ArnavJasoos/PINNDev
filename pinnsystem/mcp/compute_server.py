@@ -36,7 +36,10 @@ def _safe_path(relative: str) -> Path:
 def run_python(code: str, timeout: float = 300.0, filename: str = "_snippet.py") -> dict[str, Any]:
     """Run a Python snippet in the isolated interpreter; capture stdout/stderr."""
 
-    outcome = _runner.run_code(code, workdir=_workroot(), filename=filename, timeout=timeout)
+    # Strip any directory components so `filename` cannot escape the run workdir
+    # (Path joins discard the left side on an absolute right side).
+    safe_name = Path(filename).name or "_snippet.py"
+    outcome = _runner.run_code(code, workdir=_workroot(), filename=safe_name, timeout=timeout)
     return {
         "ok": outcome.ok,
         "returncode": outcome.returncode,

@@ -37,10 +37,15 @@ class GeneratedCode(BaseModel):
 def _write_modules(code: GeneratedCode, workspace: RunWorkspace) -> dict[str, str]:
     written: dict[str, str] = {}
     for filename, source in code.modules.items():
-        path = workspace.scripts / filename
+        # LLM-supplied names: strip directory components so a module can't be written
+        # outside the run's scripts dir (absolute/`..` paths escape a bare join).
+        safe_name = Path(filename).name
+        if not safe_name:
+            continue
+        path = workspace.scripts / safe_name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source, encoding="utf-8")
-        written[filename] = str(path)
+        written[safe_name] = str(path)
     return written
 
 
@@ -89,7 +94,8 @@ def coding_node(
         code: GeneratedCode = invoke_structured(llm, GeneratedCode, system, human)
         modules = _write_modules(code, workspace)
 
-        entry_path = Path(modules.get(code.entrypoint, workspace.scripts / code.entrypoint))
+        entry_name = Path(code.entrypoint).name or "main.py"
+        entry_path = Path(modules.get(entry_name, workspace.scripts / entry_name))
         outcome = runner.run_script(entry_path, cwd=workspace.root, timeout=run_timeout)
 
         metrics_path, _metrics = _collect_metrics(workspace)

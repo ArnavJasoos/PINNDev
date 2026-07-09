@@ -71,7 +71,11 @@ def _read_metrics(metrics_path: str) -> tuple[QualityMetrics, dict]:
 def _maybe_plot(raw: dict, state: PINNState) -> list[str]:
     if not all(k in raw for k in ("test_inputs", "prediction")):
         return []
-    out = Path(state["spec"].dataset_path or "runs") / "feedback_plot.png"
+    code = state.get("code")
+    # Land the plot in the run's directory (metrics.json's parent), not the user's
+    # dataset *file* path — spec.dataset_path is a file (often None), not a directory.
+    base = Path(code.metrics_path).parent if code and code.metrics_path else Path("runs")
+    out = base / "feedback_plot.png"
     try:
         result = plot_results(
             raw["test_inputs"], raw["prediction"], out, reference=raw.get("reference")
