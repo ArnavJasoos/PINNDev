@@ -16,12 +16,13 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-Provider = Literal["anthropic", "openai", "ollama"]
+Provider = Literal["anthropic", "openai", "ollama", "llamacpp"]
 
 _DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-sonnet-5",
     "openai": "gpt-4o",
     "ollama": "llama3.1",
+    "llamacpp": "",  # no default: a GGUF path must be supplied
 }
 
 
@@ -52,6 +53,7 @@ def _env_override(cfg: dict[str, Any]) -> dict[str, Any]:
     mapping = {
         "PINN_PROVIDER": "provider",
         "PINN_MODEL": "model",
+        "PINN_MODEL_PATH": "model",  # GGUF path for provider 'llamacpp'
         "PINN_ACCURACY_THRESHOLD": "accuracy_threshold",
         "PINN_MAX_ITERATIONS": "max_iterations",
         "PINN_SEARCH_BACKEND": "search_backend",
@@ -139,5 +141,23 @@ def llm_factory(
                 "Provider 'ollama' requires `pip install langchain-ollama`."
             ) from exc
         return ChatOllama(model=model, temperature=temperature, **kwargs)
+
+    if provider == "llamacpp":
+        from .llm import LlamaCppStructuredLLM
+
+        path = model or os.environ.get("PINN_MODEL_PATH")
+        if not path and config is not None:
+            path = config.extra.get("model_path")
+        if not path:
+            raise ValueError(
+                "Provider 'llamacpp' needs a GGUF path. Set `model` / PINN_MODEL_PATH / "
+                "config `model_path`."
+            )
+        opts = {
+            k: config.extra[k]
+            for k in ("n_ctx", "n_gpu_layers", "max_tokens")
+            if config is not None and k in config.extra
+        }
+        return LlamaCppStructuredLLM(path, temperature=temperature, **opts, **kwargs)
 
     raise ValueError(f"Unknown provider: {provider!r}")

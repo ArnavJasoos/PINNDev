@@ -1,10 +1,20 @@
 # Copy to config.yaml and edit. Env vars (PINN_PROVIDER, PINN_MODEL, ...) override these.
 
-# LLM provider: anthropic | openai | ollama
+# LLM provider: anthropic | openai | ollama | llamacpp
 provider: anthropic
-# Leave null to use the provider default (anthropic -> claude-sonnet-5, etc.)
+# Leave null to use the provider default (anthropic -> claude-sonnet-5, etc.).
+# For provider: llamacpp, set `model` to the absolute path of your local .gguf file
+# (or use env PINN_MODEL_PATH). Tune the runtime under `extra` below.
 model: null
 temperature: 0.0
+
+# Extra provider knobs. For llamacpp: n_ctx, n_gpu_layers (>0 offloads to GPU),
+# max_tokens. Example:
+# extra:
+#   model_path: C:/models/qwen2.5-7b-instruct-q4_k_m.gguf
+#   n_ctx: 8192
+#   n_gpu_layers: 0
+#   max_tokens: 2048
 
 # Loop control
 accuracy_threshold: 1.0e-3   # exit when rel-L2 / MSE below this

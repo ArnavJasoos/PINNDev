@@ -152,9 +152,16 @@ def _make_checkpointer(checkpoint_path: Optional[str]):
 
     if checkpoint_path:
         try:
-            from langgraph.checkpoint.sqlite import SqliteSaver
+            from pathlib import Path
 
-            return SqliteSaver.from_conn_string(checkpoint_path)
+            import aiosqlite
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+            Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+            # The GUI drives the graph with astream(), so the checkpointer must
+            # support async ops. AsyncSqliteSaver lazily connects on first use.
+            conn = aiosqlite.connect(checkpoint_path)
+            return AsyncSqliteSaver(conn)
         except ImportError:  # pragma: no cover - optional sqlite extra
             pass
     from langgraph.checkpoint.memory import MemorySaver

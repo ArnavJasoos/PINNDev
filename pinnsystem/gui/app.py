@@ -8,6 +8,7 @@ without the GUI extra.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Optional
 
 from ..config import AppConfig, llm_factory, load_config
@@ -82,5 +83,9 @@ def run(config: Optional[AppConfig] = None) -> int:
 
         ui.button("Run", on_click=start).props("color=primary size=lg").classes("w-full")
 
-    ui.run(native=True, title="PINN Multi-Agent System", reload=False)
+    # Native (pywebview) window needs a modern embedded browser engine; when that is
+    # missing NiceGUI fails to load Vue. Default to a real browser tab and let the user
+    # opt into the native window with PINN_GUI_NATIVE=1.
+    native = os.environ.get("PINN_GUI_NATIVE", "0") == "1"
+    ui.run(native=native, title="PINN Multi-Agent System", reload=False, show=not native)
     return 0

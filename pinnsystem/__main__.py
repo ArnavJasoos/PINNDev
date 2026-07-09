@@ -11,7 +11,7 @@ import sys
 
 def main() -> int:
     try:
-        from .gui.app import run
+        from pinnsystem.gui.app import run
     except ModuleNotFoundError as exc:  # pragma: no cover - import-time guard
         _report_missing(exc)
         return 1
@@ -33,5 +33,11 @@ def _report_missing(exc: ModuleNotFoundError) -> None:
     )
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ in {"__main__", "__mp_main__"}:
+    # NiceGUI re-runs this file (by path) per page request to render the auto-index.
+    # On that re-run ui.run() is a no-op, so main() returns; raising SystemExit here
+    # would propagate into NiceGUI's page renderer. Only exit on a real dependency
+    # failure (main() returns non-zero before the server ever starts).
+    _rc = main()
+    if _rc:
+        raise SystemExit(_rc)

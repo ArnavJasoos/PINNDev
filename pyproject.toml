@@ -36,6 +36,9 @@ gui = [
     "plotly",
     "matplotlib",
 ]
+llamacpp = [
+    "llama-cpp-python",
+]
 pde = [
     "py-pde",
 ]
