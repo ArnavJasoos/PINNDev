@@ -1,0 +1,19 @@
+# Copy to config.yaml and edit. Env vars (PINN_PROVIDER, PINN_MODEL, ...) override these.
+
+# LLM provider: anthropic | openai | ollama
+provider: anthropic
+# Leave null to use the provider default (anthropic -> claude-sonnet-5, etc.)
+model: null
+temperature: 0.0
+
+# Loop control
+accuracy_threshold: 1.0e-3   # exit when rel-L2 / MSE below this
+max_iterations: 3            # outer Feedback->Research loop cap (paper uses 3)
+code_debug_budget: 5         # Coding agent internal self-debug retries
+
+# Web search backend for the Research agent: tavily | serpapi | duckduckgo | none
+search_backend: duckduckgo
+search_api_key: null
+
+# Where per-run artifacts (datasets, models, plots, metrics) are written
+runs_dir: runs

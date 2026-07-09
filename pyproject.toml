@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pinnsystem"
+version = "0.1.0"
+description = "Multi-agent LangGraph system that turns a natural-language physics request into a trained, validated PINN."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2",
+    "pyyaml",
+    "python-dotenv",
+    "numpy",
+    "scipy",
+    "sympy",
+    "torch",
+]
+
+[project.optional-dependencies]
+# Agent orchestration + GUI (Phase 3+). Kept optional so the PINN core and state
+# layer are usable without the full LLM/MCP/GUI stack installed.
+agents = [
+    "langgraph",
+    "langchain",
+    "langchain-anthropic",
+    "langchain-openai",
+    "langchain-ollama",
+    "langchain-mcp-adapters",
+    "mcp",
+]
+gui = [
+    "nicegui",
+    "plotly",
+    "matplotlib",
+]
+pde = [
+    "py-pde",
+]
+multimodal = [
+    "pillow",
+    "pytesseract",
+]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+pinnsystem = "pinnsystem.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["pinnsystem*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

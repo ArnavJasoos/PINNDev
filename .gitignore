@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Env / secrets
+.env
+config.yaml
+
+# Per-run artifacts (datasets, models, plots, metrics)
+runs/
+
+# Isolated execution venvs
+.pinn_venv/
