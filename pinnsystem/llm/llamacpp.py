@@ -43,13 +43,18 @@ class _StructuredBinding:
     def invoke(self, messages: Any) -> BaseModel:
         schema_json = self._schema.model_json_schema()
         chat = _to_chat_messages(messages)
-        chat.append(
-            {
-                "role": "system",
-                "content": "Respond with a single JSON object matching this schema. "
-                "Emit only the JSON, no prose:\n" + json.dumps(schema_json),
-            }
+        # Many chat templates require the system message to stay first, so fold the
+        # schema instruction into the last user turn rather than adding a new system one.
+        note = (
+            "Respond with a single JSON object matching this schema. "
+            "Emit only the JSON, no prose:\n" + json.dumps(schema_json)
         )
+        for m in reversed(chat):
+            if m["role"] == "user":
+                m["content"] = f"{m['content']}\n\n{note}"
+                break
+        else:
+            chat.append({"role": "user", "content": note})
         result = self._llm._client.create_chat_completion(
             messages=chat,
             temperature=self._llm.temperature,
