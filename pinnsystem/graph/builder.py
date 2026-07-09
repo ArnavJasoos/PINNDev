@@ -147,8 +147,41 @@ def build_graph(deps: GraphDeps, *, checkpoint_path: Optional[str] = None):
     return graph.compile(checkpointer=checkpointer)
 
 
+def _state_serde():
+    """Serializer that trusts our own ``pinnsystem.state`` Pydantic models.
+
+    LangGraph's msgpack layer warns (and will soon *block*) when it deserializes a
+    checkpoint holding a type outside its default allowlist. Our state models are all
+    that end up in the checkpoint, so we register them explicitly — this silences the
+    "Deserializing unregistered type ..." warnings and keeps resume working once strict
+    mode becomes the default. Derived from the module so new models stay covered.
+    """
+
+    try:
+        from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+    except ImportError:  # pragma: no cover - older langgraph without the allowlist API
+        return None
+
+    from pydantic import BaseModel
+
+    from .. import state as _state
+
+    allow = [
+        (_state.__name__, name)
+        for name, obj in vars(_state).items()
+        if isinstance(obj, type) and issubclass(obj, BaseModel)
+    ]
+    try:
+        return JsonPlusSerializer(allowed_msgpack_modules=allow)
+    except TypeError:  # pragma: no cover - kwarg absent on this version
+        return None
+
+
 def _make_checkpointer(checkpoint_path: Optional[str]):
     """SQLite checkpointer (persistent) or in-memory fallback."""
+
+    serde = _state_serde()
+    saver_kwargs = {"serde": serde} if serde is not None else {}
 
     if checkpoint_path:
         try:
@@ -161,9 +194,9 @@ def _make_checkpointer(checkpoint_path: Optional[str]):
             # The GUI drives the graph with astream(), so the checkpointer must
             # support async ops. AsyncSqliteSaver lazily connects on first use.
             conn = aiosqlite.connect(checkpoint_path)
-            return AsyncSqliteSaver(conn)
+            return AsyncSqliteSaver(conn, **saver_kwargs)
         except ImportError:  # pragma: no cover - optional sqlite extra
             pass
     from langgraph.checkpoint.memory import MemorySaver
 
-    return MemorySaver()
+    return MemorySaver(**saver_kwargs)
