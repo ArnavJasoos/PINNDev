@@ -23,6 +23,7 @@ dependencies = [
 # layer are usable without the full LLM/MCP/GUI stack installed.
 agents = [
     "langgraph",
+    "langgraph-checkpoint-sqlite",
     "langchain",
     "langchain-anthropic",
     "langchain-openai",

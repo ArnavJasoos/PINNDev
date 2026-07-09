@@ -15,16 +15,23 @@ Built in phases (see `.claude/plan/pinn-multiagent-system.md`, §9 Build Order).
 | 2 | PINN core (solvers, architectures, losses, train, evaluate) | ✅ done |
 | 3 | Execution + MCP servers | ✅ done |
 | 4 | Agents (parser / research / coding / feedback) | ✅ done |
-| 5 | Graph + loops | ⏳ pending |
-| 6 | NiceGUI front-end | ⏳ pending |
-| 7 | Polish (failure memory, rollback, knowledge base) | ⏳ pending |
+| 5 | Graph + loops (StateGraph, routing, interrupts, checkpointer) | ✅ done |
+| 6 | NiceGUI front-end (transcript, clarify/approve dialogs) | ✅ done |
+| 7 | Polish (failure memory, rollback, history cache, packaging) | ✅ done |
 
 ## What works now
 
 The PINN core is provable end-to-end without any LLM:
 
 ```bash
-python -m pytest            # 31 tests: PINN solve, execution, tools, MCP, agents
+python -m pytest            # 43 tests: PINN solve, execution, tools, MCP, agents, routing, GUI glue
+```
+
+Launch the full app (needs the optional extras):
+
+```bash
+pip install -e ".[agents,gui]"
+python -m pinnsystem          # NiceGUI desktop app
 ```
 
 ```python
@@ -60,10 +67,17 @@ pinnsystem/
   execution/      # per-run workspaces + isolated subprocess venv runner
   tools/          # pure tool logic: symbolic, offline-safe search, PINN ops, plotting
   mcp/            # 3 stdio FastMCP servers (research / compute / pinn) + client wiring
-  knowledge/      # phi(E).psi(A) architecture-matching priors
+  knowledge/      # phi(E).psi(A) arch-matching priors + sqlite outcome history H
   agents/         # parser / research / coding / feedback node fns + prompt contracts
-tests/            # state, solver, execution, tools, MCP, knowledge, agent, e2e tests
+  graph/          # StateGraph builder + pure routing table (conditional edges)
+  gui/            # NiceGUI app, components, and framework-free bridge glue
+tests/            # state, solver, execution, tools, MCP, knowledge, agents, routing, GUI, e2e
 ```
+
+The graph wires the four agents plus two human-in-the-loop interrupt nodes
+(clarify / final-approval) with a SQLite checkpointer for resume. Routing decisions
+live in `graph/routing.py` as pure functions (tested without langgraph); langgraph and
+nicegui are imported lazily so the core stays installable on its own.
 
 MCP servers are launchable standalone (`python -m pinnsystem.mcp.compute_server`);
 agents are plain `node(state, llm, ...)` functions behind a tiny structured-LLM

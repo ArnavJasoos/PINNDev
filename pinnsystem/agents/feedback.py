@@ -123,16 +123,20 @@ def feedback_node(
             decision = "await_user"
         else:
             decision = "revise_code"
+        if passed:
+            directive = "Accuracy target met."
+        elif decision == "await_user":
+            directive = _best_so_far_directive(history, score)
+        else:
+            directive = (
+                f"rel_l2={metrics.rel_l2:.3e} above threshold {threshold:.1e}; tighten training."
+            )
         verdict = FeedbackVerdict(
             quality_score=score,
             metrics=metrics,
             passed_threshold=passed,
             decision=decision,
-            directive=(
-                "Accuracy target met."
-                if passed
-                else f"rel_l2={metrics.rel_l2:.3e} above threshold {threshold:.1e}; tighten training."
-            ),
+            directive=directive,
             plots=_maybe_plot(raw, state),
         )
 
@@ -177,6 +181,20 @@ def _localize(state: PINNState, llm: Optional[SupportsStructured]) -> _Localizat
         "Set architectural=True only if the architecture/loss formulation itself is unworkable."
     )
     return invoke_structured(llm, _Localization, system, human)
+
+
+def _best_so_far_directive(history: list[dict], current_score: float) -> str:
+    """Report the best iteration so far when iterations are exhausted (rollback signal)."""
+
+    from ..knowledge import select_best_iteration
+
+    best = select_best_iteration(history)
+    if best and best.get("quality_score", 0.0) > current_score:
+        return (
+            f"Iteration budget exhausted. Best result was iteration {best.get('iteration')} "
+            f"(score={best['quality_score']:.3f}); consider rolling back to it."
+        )
+    return "Iteration budget exhausted; current result is the best so far."
 
 
 def _default_directive(code) -> str:
