@@ -16,15 +16,21 @@ CODING = "coding"
 FEEDBACK = "feedback"
 HUMAN_CLARIFY = "human_clarify"
 HUMAN_APPROVE_FINAL = "human_approve_final"
+INTENT_ROUTER = "intent_router"
 END = "__end__"
 
 
 def entry_route(state: PINNState) -> str:
-    """Data-dependency branching at graph entry.
+    """Branch at graph entry.
 
-    Flags are set on the initial ``ProblemSpec`` (e.g. by the GUI) before the run:
-    a dataset skips data generation; given formulas skip physics parsing/research.
+    A mid-session follow-up (set on a resumed thread) goes to the intent router, which
+    re-enters the pipeline at the right stage. Otherwise this is data-dependency
+    branching for a fresh run: a dataset skips data generation; given formulas skip
+    physics parsing/research.
     """
+
+    if state.get("followup"):
+        return INTENT_ROUTER
 
     spec = state["spec"]
     if spec.user_provided_formulas:
@@ -34,6 +40,17 @@ def entry_route(state: PINNState) -> str:
         # Data but no formulas → still parse the problem (lightly) against the data.
         return PARSER
     return PARSER
+
+
+def intent_route(state: PINNState) -> str:
+    """Send a classified follow-up to the stage the intent router chose."""
+
+    target = state.get("followup_target")
+    if target == PARSER:
+        return PARSER
+    if target == CODING:
+        return CODING
+    return RESEARCH
 
 
 def after_clarify(state: PINNState) -> str:

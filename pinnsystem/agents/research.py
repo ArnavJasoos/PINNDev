@@ -47,7 +47,12 @@ def research_node(state: PINNState, llm: SupportsStructured) -> dict:
         f"Rationale: {match['rationale']}\n"
         f"Ranked scores: {match['scores']}\n\n"
         f"Forbidden approaches (failure memory — do NOT reuse): {forbidden or 'none'}\n\n"
-        "Produce the ResearchReport."
+        + (
+            f"User revision request to honor: {state['revision_note']}\n\n"
+            if state.get("revision_note")
+            else ""
+        )
+        + "Produce the ResearchReport."
     )
 
     report: ResearchReport = invoke_structured(llm, ResearchReport, system, human)

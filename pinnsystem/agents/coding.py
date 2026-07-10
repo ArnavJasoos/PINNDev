@@ -77,6 +77,7 @@ def coding_node(
     directive = ""
     if state.get("feedback"):
         directive = state["feedback"].directive  # targeted regeneration on revise
+    revision_note = state.get("revision_note")  # mid-session user request (smart re-route)
 
     system = f"{load_prompt('coding')}\n\n{_CONTRACT}"
     base_human = (
@@ -84,6 +85,7 @@ def coding_node(
         f"Write modules under the scripts dir; entrypoint must write metrics.json to the "
         f"current working directory. Reuse `pinnsystem.pinn` helpers where possible.\n"
         + (f"\nFeedback directive to address: {directive}\n" if directive else "")
+        + (f"\nUser revision request to honor: {revision_note}\n" if revision_note else "")
     )
 
     last: CodeArtifacts | None = None
@@ -109,7 +111,7 @@ def coding_node(
         )
 
         if outcome.ok and metrics_path:
-            return {"code": last}
+            return {"code": last, "revision_note": None}
 
         # Feed the failure back for a targeted fix on the next attempt.
         error_context = (
@@ -118,4 +120,4 @@ def coding_node(
             f"stdout tail:\n{outcome.stdout[-1000:]}\n"
         )
 
-    return {"code": last}
+    return {"code": last, "revision_note": None}

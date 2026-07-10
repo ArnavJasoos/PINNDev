@@ -37,3 +37,21 @@ def test_event_to_transcript_coding_error():
     )
     assert "error" in c["detail"]
     assert "ValueError: bad" in c["detail"]
+
+
+def test_event_to_transcript_coding_lists_created_files():
+    code = CodeArtifacts(
+        modules={"main.py": "/runs/e2e/scripts/main.py"},
+        dataset_path="/runs/e2e/data",
+        metrics_path="/runs/e2e/metrics.json",
+        last_run_stdout="run ok",
+    )
+    c = event_to_transcript("coding", {"code": code})
+    assert "/runs/e2e/scripts/main.py" in c["files"]
+    assert "/runs/e2e/metrics.json" in c["files"]
+    assert "run ok" in c["body"]
+
+
+def test_event_to_transcript_research_body_has_hyperparams():
+    r = event_to_transcript("research", {"research": ResearchReport(architecture="MLP")})
+    assert "width=" in r["body"] and "epochs=" in r["body"]

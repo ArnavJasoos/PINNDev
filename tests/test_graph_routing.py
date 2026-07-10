@@ -24,6 +24,19 @@ def test_entry_route_branches_on_flags():
     assert routing.entry_route(st) == routing.PARSER
 
 
+def test_entry_route_followup_goes_to_intent_router():
+    st = _state()
+    st["followup"] = "make it deeper"
+    assert routing.entry_route(st) == routing.INTENT_ROUTER
+
+
+def test_intent_route_maps_target():
+    assert routing.intent_route(_state(followup_target="parser")) == routing.PARSER
+    assert routing.intent_route(_state(followup_target="coding")) == routing.CODING
+    assert routing.intent_route(_state(followup_target="research")) == routing.RESEARCH
+    assert routing.intent_route(_state()) == routing.RESEARCH  # default
+
+
 def test_after_clarify_gates_on_approval():
     st = _state()
     st["spec"] = ProblemSpec(raw_query="x", approved_by_user=False)

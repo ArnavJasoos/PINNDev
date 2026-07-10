@@ -31,5 +31,7 @@ def parser_node(state: PINNState, llm: SupportsStructured) -> dict:
     # The raw query is authoritative; never let the model rewrite it.
     spec.raw_query = raw_query
 
-    pending = None if spec.approved_by_user else "approve_statement"
-    return {"spec": spec, "pending_user_action": pending}
+    # The statement is always confirmed by a human before the loop starts, regardless
+    # of how confident the model was — the human_clarify gate flips this to True.
+    spec.approved_by_user = False
+    return {"spec": spec, "pending_user_action": "approve_statement"}

@@ -42,23 +42,55 @@ def initial_state_from_input(
     return state
 
 
-def event_to_transcript(node: str, update: dict[str, Any]) -> dict[str, str]:
-    """Turn one ``astream`` node update into a transcript entry {stage, label, detail}."""
+def event_to_transcript(node: str, update: dict[str, Any]) -> dict[str, Any]:
+    """Turn one ``astream`` node update into a transcript entry.
+
+    Returns ``{stage, label, detail, files, body}``: ``detail`` is the collapsed
+    one-liner, ``files`` the artifacts the stage produced, and ``body`` the expandable
+    verbose text (hyperparams, stdout tail, metrics) for the "Thinking" panel.
+    """
 
     label = _STAGE_LABELS.get(node, node)
     detail = ""
+    files: list[str] = []
+    body = ""
+
     if node == "parser" and update.get("spec"):
         detail = update["spec"].normalized_statement
     elif node == "research" and update.get("research"):
         r = update["research"]
         detail = f"{r.architecture}: {r.arch_rationale}"
+        hp = r.hyperparams
+        body = (
+            f"Architecture: {r.architecture}\n"
+            f"Hyperparams: width={hp.width} depth={hp.depth} lr={hp.lr} "
+            f"epochs={hp.epochs} opt={hp.optimizer} act={hp.activation}\n"
+            f"Loss terms: {', '.join(f'{t.name}(w={t.weight})' for t in r.loss_terms) or '—'}\n"
+            f"Sampling: {r.sampling.collocation_points} collocation / "
+            f"{r.sampling.boundary_points} boundary / {r.sampling.initial_points} initial"
+        )
     elif node == "coding" and update.get("code"):
         c = update["code"]
         detail = "run ok" if not c.last_run_error else f"error: {c.last_run_error.splitlines()[-1]}"
+        files = [p for p in c.modules.values()]
+        for extra in (c.dataset_path, c.model_path, c.metrics_path):
+            if extra:
+                files.append(extra)
+        body = (c.last_run_stdout or "")[-2000:]
+        if c.last_run_error:
+            body = f"{body}\n\n--- stderr ---\n{c.last_run_error}"[-2000:]
     elif node == "feedback" and update.get("feedback"):
         v = update["feedback"]
         detail = f"decision={v.decision} score={v.quality_score:.3f} — {v.directive}"
-    return {"stage": node, "label": label, "detail": detail}
+        m = v.metrics
+        body = (
+            f"mse={m.mse:.3e} rel_l2={m.rel_l2:.3e} "
+            f"convergence_iters={m.convergence_iters} loss_smoothness={m.loss_smoothness:.3f}\n"
+            f"passed_threshold={v.passed_threshold}"
+        )
+        files = list(v.plots)
+
+    return {"stage": node, "label": label, "detail": detail, "files": files, "body": body}
 
 
 @dataclass

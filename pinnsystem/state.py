@@ -172,6 +172,12 @@ class PINNState(TypedDict, total=False):
     accuracy_threshold: float
     messages: list
     pending_user_action: Optional[str]
+    # Mid-session iteration (smart re-route): ``followup`` is the raw user message that
+    # re-enters a completed run; the intent router classifies it into a stage and passes
+    # the instruction on as ``revision_note`` (consumed by research/coding).
+    followup: Optional[str]
+    followup_target: Optional[str]
+    revision_note: Optional[str]
 
 
 def new_state(
@@ -193,4 +199,7 @@ def new_state(
         accuracy_threshold=accuracy_threshold,
         messages=[],
         pending_user_action=None,
+        followup=None,
+        followup_target=None,
+        revision_note=None,
     )

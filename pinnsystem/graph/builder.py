@@ -11,7 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from ..agents import coding_node, feedback_node, parser_node, research_node
+from ..agents import (
+    coding_node,
+    feedback_node,
+    intent_router_node,
+    parser_node,
+    research_node,
+)
 from ..agents.base import SupportsStructured
 from ..config import AppConfig
 from ..execution import RunWorkspace, VenvRunner
@@ -55,7 +61,16 @@ def _make_nodes(deps: GraphDeps) -> dict[str, Any]:
     def feedback(state: PINNState) -> dict:
         return feedback_node(state, deps.llm)
 
-    return {"parser": parser, "research": research, "coding": coding, "feedback": feedback}
+    def intent_router(state: PINNState) -> dict:
+        return intent_router_node(state, deps.llm)
+
+    return {
+        "parser": parser,
+        "research": research,
+        "coding": coding,
+        "feedback": feedback,
+        "intent_router": intent_router,
+    }
 
 
 def _make_human_nodes() -> dict[str, Any]:
@@ -63,10 +78,26 @@ def _make_human_nodes() -> dict[str, Any]:
 
     def human_clarify(state: PINNState) -> dict:
         spec = state["spec"]
+        pde = spec.pde
+        domain = spec.domain
         payload = interrupt(
             {
                 "type": "clarify",
                 "statement": spec.normalized_statement,
+                "pde_latex": pde.latex if pde else "",
+                "operators": list(pde.operators) if pde else [],
+                "boundary_conditions": list(pde.boundary_conditions) if pde else [],
+                "initial_conditions": list(pde.initial_conditions) if pde else [],
+                "domain": (
+                    {
+                        "dims": domain.dims,
+                        "variables": list(domain.variables),
+                        "bounds": {k: list(v) for k, v in domain.bounds.items()},
+                    }
+                    if domain
+                    else None
+                ),
+                "quantities": list(spec.quantities),
                 "question": state.get("pending_user_action"),
             }
         )
@@ -103,13 +134,28 @@ def build_graph(deps: GraphDeps, *, checkpoint_path: Optional[str] = None):
     for name, fn in {**nodes, **humans}.items():
         graph.add_node(name, fn)
 
-    require_approval = deps.config.extra.get("require_user_approval", True)
+    # After the user confirms the problem statement (human_clarify), the research→
+    # coding→feedback loop runs to completion by default: an "accept" verdict goes
+    # straight to END instead of stopping at a second human gate. Set
+    # extra["require_user_approval"]=True to re-enable the final approval dialog.
+    require_approval = deps.config.extra.get("require_user_approval", False)
 
-    # Entry: data-dependency branching.
+    # Entry: follow-up → intent router, else data-dependency branching.
     graph.add_conditional_edges(
         START,
         routing.entry_route,
-        {routing.PARSER: "parser", routing.RESEARCH: "research"},
+        {
+            routing.PARSER: "parser",
+            routing.RESEARCH: "research",
+            routing.INTENT_ROUTER: "intent_router",
+        },
+    )
+
+    # Intent router → the stage that owns the mid-session change.
+    graph.add_conditional_edges(
+        "intent_router",
+        routing.intent_route,
+        {routing.PARSER: "parser", routing.RESEARCH: "research", routing.CODING: "coding"},
     )
 
     # Parser → clarify interrupt → (loop | research).

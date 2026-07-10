@@ -10,5 +10,12 @@ from .coding import coding_node
 from .feedback import feedback_node
 from .parser import parser_node
 from .research import research_node
+from .router import intent_router_node
 
-__all__ = ["parser_node", "research_node", "coding_node", "feedback_node"]
+__all__ = [
+    "parser_node",
+    "research_node",
+    "coding_node",
+    "feedback_node",
+    "intent_router_node",
+]
